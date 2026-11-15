@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BBF Kreativ-Werkstatt</title>
+<style>
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { margin: 0; display: flex; height: 100vh; background: #0f172a; color: #f8fafc; overflow: hidden; }
+  #sidebar { width: 36%; min-width: 310px; background: #1e293b; padding: 18px; display: flex; flex-direction: column; gap: 12px; border-right: 2px solid #334155; overflow-y: auto; }
+  .header-row { display: flex; justify-content: space-between; align-items: center; }
+  h1 { font-size: 1.25rem; margin: 0; color: #38bdf8; }
+  #lock-btn { background: transparent; border: 1px solid #475569; color: #94a3b8; border-radius: 8px; padding: 4px 8px; font-size: 0.8rem; cursor: pointer; }
+  #key-box { background: #0f172a; border: 1px solid #38bdf8; border-radius: 10px; padding: 10px; display: none; flex-direction: column; gap: 8px; }
+  #key-box input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #fff; font-size: 0.85rem; }
+  #key-box button { background: #38bdf8; color: #0f172a; border: none; border-radius: 6px; padding: 8px; font-weight: 700; cursor: pointer; }
+  p.sub { font-size: 0.85rem; color: #94a3b8; margin: 0; }
+  .starters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .starter-btn { background: #334155; color: #f1f5f9; border: 1px solid #475569; border-radius: 10px; padding: 10px 8px; font-size: 0.82rem; font-weight: 600; text-align: left; cursor: pointer; }
+  .starter-btn:active { background: #475569; }
+  textarea { width: 100%; height: 105px; border-radius: 12px; border: 2px solid #475569; background: #0f172a; color: #fff; padding: 12px; font-size: 1rem; resize: none; }
+  textarea:focus { outline: none; border-color: #38bdf8; }
+  .actions { display: flex; gap: 8px; }
+  #build-btn { flex: 1; background: #22c55e; color: #052e16; border: none; border-radius: 12px; padding: 13px; font-size: 0.95rem; font-weight: 800; cursor: pointer; }
+  #build-btn:disabled { background: #475569; color: #94a3b8; }
+  #save-btn { background: #3b82f6; color: #fff; border: none; border-radius: 12px; padding: 13px 12px; font-size: 0.9rem; font-weight: 700; cursor: pointer; display: none; }
+  #reset-btn { background: #ef4444; color: #fff; border: none; border-radius: 12px; padding: 13px 12px; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+  #status { font-size: 0.85rem; color: #fbbf24; min-height: 20px; word-break: break-word; }
+  #stage { flex: 1; background: #ffffff; position: relative; }
+  iframe { width: 100%; height: 100%; border: none; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="header-row">
+    <h1>🚀 BBF Kreativ-Werkstatt</h1>
+    <button id="lock-btn" onclick="toggleKeyBox()" title="Lehrperson-Setup">🔑</button>
+  </div>
+
+  <div id="key-box">
+    <span style="font-size:0.8rem;color:#38bdf8;font-weight:600;">Lehrperson-Setup: API-Key speichern</span>
+    <input type="password" id="api-key-input" placeholder="AQ.Ab8RN6... oder AIzaSy... einfügen">
+    <button onclick="saveKey()">Key lokal auf Gerät speichern</button>
+  </div>
+
+  <p class="sub">Beschreibe dein Spiel oder deine App – oder tippe unten auf eine Start-Idee:</p>
+
+  <div class="starters">
+    <button class="starter-btn" onclick="setPrompt('Baue ein Fang-Spiel: Ein Hund unten fängt fallende Knochen für Punkte, muss aber Steinen ausweichen. Mit grossen Touch-Buttons Links und Rechts für das iPad.')">🐶 Knochen-Fänger</button>
+    <button class="starter-btn" onclick="setPrompt('Baue ein buntes Tier- und Ozean-Quiz mit 5 spannenden Fragen, 4 grossen Antwort-Buttons und Punktestand am Ende.')">🐋 Meeressäuger-Quiz</button>
+    <button class="starter-btn" onclick="setPrompt('Baue ein buntes Pixel-Zeichenbrett mit 8 Farb-Buttons, Radiergummi und Löschen-Knopf zum Malen mit dem Finger.')">🎨 Pixel-Maler</button>
+    <button class="starter-btn" onclick="setPrompt('Baue ein buntes Klavier mit 8 Tasten, die echte Töne spielen, wenn man darauf tippt.')">🎹 Touch-Klavier</button>
+  </div>
+
+  <textarea id="prompt" placeholder="Was möchtest du bauen oder verbessern? (Tipp: Du kannst auch das Mikrofon auf der iPad-Tastatur zum Einsprechen nutzen!)"></textarea>
+
+  <div class="actions">
+    <button id="build-btn" onclick="generateApp()">✨ Bauen</button>
+    <button id="save-btn" onclick="downloadGame()">💾 Speichern</button>
+    <button id="reset-btn" onclick="resetAll()">Neu</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<div id="stage">
+  <iframe id="preview" sandbox="allow-scripts"></iframe>
+</div>
+
+<script>
+  const MODEL = "gemini-2.5-flash";
+  let currentCode = "";
+
+  const SYSTEM_PROMPT = `Du bist ein freundlicher Programmier-Assistent für 10- bis 12-jährige Primarschulkinder in der Schweiz.
+REGELN:
+1. Erstelle ausschliesslich harmlose, kreative, friedliche Mini-Spiele, Quizze, Musik-Apps oder Zeichenprogramme als vollständige, eigenständige HTML-Datei (inkl. CSS und JS in einer Datei).
+2. STRENGES VERBOT: Keine Waffen, kein Schiessen, keine Gewalt, kein Blut, keine Kämpfe, keine unpassenden Inhalte. Falls das Kind so etwas wünscht, baue stattdessen ein freundliches Geschicklichkeits- oder Sammelspiel (z. B. Sterne oder Äpfel fangen) und schreibe oben im Spiel einen freundlichen Hinweis.
+3. STEUERUNG (IPAD + LAPTOP): Alle Spiele müssen zwingend sowohl per Touch auf dem iPad (touchstart/touchend) ALS AUCH per Mausklick (mousedown/mouseup/click) und Pfeiltasten funktionieren! Baue immer grosse, gut erreichbare On-Screen-Buttons ein.
+4. Antworte NUR mit dem reinen HTML-Code (ohne Markdown-Erklärungen aussenrum).`;
+
+  function getApiKey() {
+    return localStorage.getItem("bbf_gemini_key") || "";
+  }
+
+  function toggleKeyBox() {
+    const box = document.getElementById("key-box");
+    box.style.display = box.style.display === "flex" ? "none" : "flex";
+    document.getElementById("api-key-input").value = getApiKey();
+  }
+
+  function saveKey() {
+    const val = document.getElementById("api-key-input").value.trim();
+    if (val) {
+      localStorage.setItem("bbf_gemini_key", val);
+      document.getElementById("key-box").style.display = "none";
+      document.getElementById("status").textContent = "✅ API-Key sicher auf diesem Gerät gespeichert!";
+    }
+  }
+
+  function setPrompt(text) {
+    document.getElementById("prompt").value = text;
+  }
+
+  function resetAll() {
+    currentCode = "";
+    document.getElementById("prompt").value = "";
+    document.getElementById("save-btn").style.display = "none";
+    document.getElementById("status").textContent = getApiKey() ? "Bereit für eine neue Idee!" : "⚠️ Bitte oben rechts auf 🔑 tippen und API-Key eintragen.";
+    document.getElementById("preview").srcdoc = "<body style='font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#64748b;text-align:center;padding:20px;'><h2>👈 Wähle links eine Idee aus oder schreibe deinen Wunsch!</h2></body>";
+  }
+
+  function downloadGame() {
+    if (!currentCode) return;
+    const title = prompt("Wie heisst dein Spiel? (z. B. wuffi-spiel)", "mein-bbf-spiel");
+    if (!title) return;
+    const cleanName = title.toLowerCase().replace(/[^a-z0-9-_]/g, "-") + ".html";
+    const blob = new Blob([currentCode], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = cleanName;
+    a.click();
+  }
+
+  async function generateApp() {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      toggleKeyBox();
+      document.getElementById("status").textContent = "⚠️ Bitte zuerst oben den API-Key speichern.";
+      return;
+    }
+
+    const promptInput = document.getElementById("prompt").value.trim();
+    const statusEl = document.getElementById("status");
+    const btn = document.getElementById("build-btn");
+    if (!promptInput) return;
+
+    btn.disabled = true;
+    statusEl.textContent = "⏳ Die KI programmiert deine Idee (ca. 10–15 Sek.)...";
+
+    const fullUserMessage = currentCode
+      ? `Hier ist der bisherige HTML-Code unseres Spiels:\n${currentCode}\n\nBitte ändere oder erweitere das Spiel nach diesem Wunsch des Kindes: "${promptInput}". Gib wieder den kompletten, funktionierenden HTML-Code zurück.`
+      : `Baue folgende App / folgendes Spiel für ein Kind auf dem iPad: "${promptInput}"`;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ parts: [{ text: fullUserMessage }] }]
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        statusEl.textContent = "⚠️ API-Fehler: " + (data.error ? data.error.message : response.status);
+        btn.disabled = false;
+        return;
+      }
+
+      let code = data.candidates[0].content.parts[0].text;
+      code = code.replace(/^```html\s*/i, "").replace(/```$/i, "").trim();
+      currentCode = code;
+
+      document.getElementById("preview").srcdoc = code;
+      document.getElementById("prompt").value = "";
+      document.getElementById("save-btn").style.display = "inline-block";
+      statusEl.textContent = "✅ Fertig! Probier es rechts aus oder schreibe eine Änderung.";
+    } catch (err) {
+      statusEl.textContent = "❌ Verbindungsfehler: " + err.message;
+    }
+    btn.disabled = false;
+  }
+
+  window.onload = () => {
+    if (!getApiKey()) toggleKeyBox();
+    resetAll();
+  };
+</script>
+</body>
+</html>
