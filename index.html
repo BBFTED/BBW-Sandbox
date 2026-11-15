@@ -149,7 +149,8 @@ REGELN:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ parts: [{ text: fullUserMessage }] }]
+          contents: [{ parts: [{ text: fullUserMessage }] }],
+          generationConfig: { thinkingConfig: { thinkingBudget: 1024 } }
         })
       });
 
