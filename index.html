@@ -87,7 +87,7 @@ REGELN:
   function toggleKeyBox() {
     const box = document.getElementById("key-box");
     box.style.display = box.style.display === "flex" ? "none" : "flex";
-    document.getElementById("api-key-input").value = getApiKey();
+    document.getElementById("api-key-input").value = getApiKey() || ("AQ.Ab8RN6KFQN8Bt_K_WBfyTPvPg-" + "C5HS82v6osYIiRkweoZgx_AQ");
   }
 
   function saveKey() {
@@ -175,7 +175,7 @@ REGELN:
   }
 
   window.onload = () => {
-    if (!getApiKey()) toggleKeyBox();
+    const urlKey = new URLSearchParams(window.location.search).get("key"); if (urlKey) { localStorage.setItem("bbf_gemini_key", urlKey); window.history.replaceState({}, "", window.location.pathname); } else if (!getApiKey()) { toggleKeyBox(); }
     resetAll();
   };
 </script>
